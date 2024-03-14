@@ -20,7 +20,6 @@ class: left, middle, r-logo
 
 ## Formalities
 
-* You can follow this presentation on your device at https://keithmcnulty.github.io/causal_inference_intro/
 * Much of this presentation is based on the book "Statistical Rethinking" by Richard McElreath
 * You can find the code for this presentation at its github repo [here](https://github.com/keithmcnulty/causal_inference_intro)
 * We will work in R, but all of this is possible in Python too - please reach out to me if you need direction to the appropriate Python packages.
