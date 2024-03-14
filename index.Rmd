@@ -23,7 +23,7 @@ class: left, middle, r-logo
 * You can follow this presentation on your device at https://keithmcnulty.github.io/causal_inference_intro/
 * Much of this presentation is based on the book "Statistical Rethinking" by Richard McElreath
 * You can find the code for this presentation at its github repo [here](https://github.com/keithmcnulty/causal_inference_intro)
-* The data for the US divorce rate example is available in the `rethinking` R package: `data("WaffleDivorce")`
+* We will work in R, but all of this is possible in Python too - please reach out to me if you need direction to the appropriate Python packages.
 
 
 ---
@@ -87,6 +87,20 @@ coordinates(mcd_dag) <- list(
 )
 plot(mcd_dag)
 ```
+
+---
+class: left, middle, r-logo
+
+## Data for this session
+
+We will work with the `WaffleDivorce` dataset, which is part of the `rethinking` package.  Here's the first few lines of the data.
+
+```{r}
+library(rethinking)
+data("WaffleDivorce")
+head(WaffleDivorce)
+```
+
 
 ---
 class: left, middle, r-logo
@@ -228,7 +242,7 @@ impliedConditionalIndependencies(dag1)
 ---
 class: left, middle, r-logo
 
-## You model construction will depend on your DAG
+## Your model construction will depend on your DAG
 
 Let's build a model to support that $M$ is independent  of $D$ conditional on $A$.  This means we must include both $M$ and $A$ as input variables, with $D$ as our output variable.  Here are simulations of the posterior coefficients of linear model D ~ A + M. You can see the code for this in the source on Github.  
 
@@ -289,6 +303,9 @@ d <- tibble(
   blackspot = rbinom(n, size = 1, prob = .5 - spray * 0.4),
   h1 = h0 + rnorm(n, mean = 5 - 3 * blackspot, sd = 1)
 )
+
+# first few rows
+head(d)
 ```
 
 
@@ -414,13 +431,19 @@ H <- ifelse(Total >= q, TRUE, FALSE)
 Now lets test for independence of $P$ and $I$ in our sample:
 
 ```{r}
-cor(P, I)
+cor.test(P, I)
 ```
+
+---
+class: left, middle, r-logo
+
+## What if we look at just the people we hired
+
 
 Now, an enthusiastic people analytics professional decides to ask if good problem-solvers have bad interpersonal skills, and tests the hypothesis on their company employees using recruiting data:
 
 ```{r}
-(correl <- cor(P[H == TRUE], I[H == TRUE]))
+cor.test(P[H == TRUE], I[H == TRUE])
 ```
 
 ---
@@ -435,6 +458,8 @@ d <- data.frame(
   I = I,
   H = H
 )
+
+correl <- cor(P[H == TRUE], I[H == TRUE])
 
 ggplot(data = d, aes(x = P, y = I)) +
   geom_point(aes(color = H)) +
@@ -651,5 +676,4 @@ class: left, middle, r-logo
 2.  If you work in predictive analytics you don't have to worry about it too much
 3.  If you work in explanatory analytics it's a very valuable skill and teaches a disciplined approach to modelling
 4.  I highly recommend [Statistical Rethinking](https://www.amazon.com/Statistical-Rethinking-Bayesian-Examples-Chapman/dp/1482253445) by Richard McElreath.  An outstanding book but not for the statistically fainthearted.
-5.  If you are attending the RStudio conference and feel brave enough, consider the [Causal Inference in R Workshop](https://www.rstudio.com/conference/2022/workshops/causal-inference-rstats/)
-
+5.  Another related book which is more business oriented is [Inference and Intervention](https://www.amazon.com/Inference-Intervention-Michael-D-Ryall/dp/0415657601)
