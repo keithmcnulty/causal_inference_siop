@@ -1,5 +1,5 @@
 ---
-title: "Introduction to Causal Inference"
+title: "Causal Inference"
 author: "Keith McNulty"
 output:
   xaringan::moon_reader:
@@ -18,12 +18,38 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 
 class: left, middle, r-logo
 
-## Formalities
+## SAT Scores and Family Income
 
-* Much of this presentation is based on the book "Statistical Rethinking" by Richard McElreath
-* You can find the code for this presentation at its github repo [here](https://github.com/keithmcnulty/causal_inference_intro)
-* We will work in R, but all of this is possible in Python too - please reach out to me if you need direction to the appropriate Python packages.
+![](average-sat-scores-by-family-income-v0-yAwPHyOnvE-P2amceXMqlHj1ybPw2U6xXSXyN3ck-fY.webp)
+---
+class: left, middle, r-logo
 
+## Waffle Houses and Divorce Rates in US states
+
+```{r, echo = FALSE, fig.align = "center"}
+library(brms)
+library(here)
+library(rethinking)
+library(tidybayes)
+library(ggplot2)
+data("WaffleDivorce")
+
+dw_cor <- cor(WaffleDivorce$WaffleHouses, WaffleDivorce$Divorce)
+
+
+ggplot(data = WaffleDivorce, aes(x = WaffleHouses, y = Divorce)) +
+  geom_point(color = "pink") +
+  geom_smooth(method = lm) +
+  labs(x = "Waffle Houses", y = "Divorce Rate") +
+  annotate(
+    geom = "text", 
+    x = 250,
+    y = 14,
+    label = paste("r =", round(dw_cor, 2))
+  ) +
+  theme_minimal()
+
+```
 
 ---
 class: left, middle, r-logo
@@ -69,64 +95,6 @@ dagify(P ~ R,
 
 ```
 
----
-class: left, middle, r-logo
-
-
-## Creating DAGs in R
-
-There are a number of package options, but `dagitty` is easy to use and has some cool additional functionality which we will use later.
-
-```{r, out.height="300", fig.align= "center"}
-library(dagitty)
-mcd_dag <- dagitty("dag{H -> P; R -> P}")
-coordinates(mcd_dag) <- list(
-  x = c(H = 0, R = 0, P = 1), 
-  y = c(R = 0, H = 1, P = 0.5)
-)
-plot(mcd_dag)
-```
-
----
-class: left, middle, r-logo
-
-## Data for this session
-
-We will work with the `WaffleDivorce` dataset, which is part of the `rethinking` package.  Here's the first few lines of the data.
-
-```{r}
-library(rethinking)
-data("WaffleDivorce")
-head(WaffleDivorce)
-```
-
-
----
-class: left, middle, r-logo
-
-## Waffle Houses and Divorce Rates in US states
-
-```{r, echo = FALSE, fig.align = "center"}
-library(rethinking)
-data("WaffleDivorce")
-
-dw_cor <- cor(WaffleDivorce$WaffleHouses, WaffleDivorce$Divorce)
-
-
-ggplot(data = WaffleDivorce, aes(x = WaffleHouses, y = Divorce)) +
-  geom_point(color = "pink") +
-  geom_smooth(method = lm) +
-  labs(x = "Waffle Houses", y = "Divorce Rate") +
-  annotate(
-    geom = "text", 
-    x = 250,
-    y = 14,
-    label = paste("r =", round(dw_cor, 2))
-  ) +
-  theme_minimal()
-
-```
-
 
 ---
 class: left, middle, r-logo
@@ -136,6 +104,8 @@ class: left, middle, r-logo
 In these DAGs, a circled variable means a variable which is as yet unknown/unobserved.
 
 ```{r, echo = FALSE, fig.show="hold", out.width="50%"}
+library(dagitty)
+
 dag1_coords <-
   tibble(name = c("W", "D"),
          x = c(0, 1),
@@ -194,17 +164,18 @@ class: left, middle, r-logo
 
 In a DAG, we only draw an arrow between two variables when we believe there to be an **independent** causal influence between two variables.  Variables can still be associated even though they are not connected in a DAG.  
 
-Imagine we are trying to understand the causal influence of the average age at marriage $A$ and the marriage rate $M$ on divorce rate $D$ in US states.  We construct the following DAG based on our belief around causality:
+Imagine we are trying to understand the causal influence of a state being in the south ($S$) and the number of Waffle Houses ($W$) and Divorce Rates ($D$).  We construct the following DAG based on our belief around causality:
 
 ```{r, echo = FALSE, fig.align="center", out.height = "300"}
 dag_coords <-
-  tibble(name = c("M", "A", "D"),
+  tibble(name = c("W", "S", "D"),
          x = c(0, 0.5, 1),
          y = c(0, 1, 0))
 
+# add a margin so that the words are not cut off
 dagify(
-       D ~ A,
-       M ~ A,
+       D ~ S,
+       W ~ S,
        coords = dag_coords) %>%
   ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
   geom_dag_text(color = "black", size = 10) +
@@ -213,126 +184,9 @@ dagify(
   geom_dag_edges(edge_color = "black", edge_width = 2,
                  arrow_directed = grid::arrow(length = grid::unit(15, "pt"),
                                               type = "closed")) +
-  theme_void() 
-```
-
-
----
-class: left, middle, r-logo
-
-## Conditional independence
-
-In our proposed DAG, $A$ has a causal influence on $M$ and on $D$.  But $M$ **does not** have an independent causal influence on $D$.  $M$ can still be associated with $D$ statistically, but only because they have similar causation.  
-
-In this case, we say ** $D$ is independent of $M$ conditional on $A$ **.  We write this mathematically as $D \!\perp\!\!\!\perp M|A$.
-
-The `dagitty` package can determine all conditional independencies in a DAG:
-
-```{r}
-dag1 <- dagitty(
-  "dag{A -> D; A ->M}"
-)
-impliedConditionalIndependencies(dag1)
-```
-
-
-
-
----
-class: left, middle, r-logo
-
-## Your model construction will depend on your DAG
-
-Let's build a model to support that $M$ is independent  of $D$ conditional on $A$.  This means we must include both $M$ and $A$ as input variables, with $D$ as our output variable.  Here are simulations of the posterior coefficients of linear model D ~ A + M. You can see the code for this in the source on Github.  
-
-
-```{r, echo = FALSE, fig.align = "center", out.height = "400"}
-library(brms)
-library(here)
-library(tidybayes)
-
-# standardize variables
-WaffleDivorce <- WaffleDivorce |> 
-  mutate(across(c("Marriage", "MedianAgeMarriage", "Divorce"), standardize))
-
-# use gaussian priors
-mar_age_mod <- brm(Divorce ~ 1 + Marriage + MedianAgeMarriage,
-               data = WaffleDivorce, family = gaussian,
-               prior = c(prior(normal(0, 0.2), class = Intercept),
-                         prior(normal(0, 0.5), class = b, coef = Marriage),
-                         prior(normal(0, 0.5), class = b, coef = MedianAgeMarriage),
-                         prior(exponential(1), class = sigma)),
-               seed = 234,
-               file = here("fits", "mar_age_mod"))
-
-# simulate posterior coefficients
-draws <- gather_draws(mar_age_mod, b_Intercept, b_Marriage,
-                      b_MedianAgeMarriage, sigma)
-
-# visualize
-ggplot(draws, aes(x = .value, y = .variable)) +
-  stat_halfeye(.width = 0.89) +
-  labs(x = "Parameter value", y = "Parameter")
-
-```
-
----
-class: left, middle, r-logo
-
-## Post-treatment bias
-
-Imagine we are growing some roses.  Unfortunately our roses are prone to getting blackspot, a bad disease which prevents the leaves absorbing light.
-
-Never fear, we have an incredible spray which kills blackspot on roses. The more we spray, the less blackspot will appear.  The less blackspot, the more the roses can grow.  
-
-Let's simulate some data to represent this.
-
----
-class: left, middle, r-logo
-
-## Simulating rose data
-
-```{r}
-n <- 100
-
-set.seed(42)
-d <- tibble(
-  h0 = rnorm(n, mean = 10, sd = 2), 
-  spray = rep(0:1, each = n / 2),
-  blackspot = rbinom(n, size = 1, prob = .5 - spray * 0.4),
-  h1 = h0 + rnorm(n, mean = 5 - 3 * blackspot, sd = 1)
-)
-
-# first few rows
-head(d)
-```
-
-
----
-class: left, middle, r-logo
-
-## Now run a linear model and look at the posterior coefficients
-
-```{r, echo = FALSE, out.height = "400", fig.align = "center"}
-blackspot_mod <- 
-  brm(data = d, family = gaussian,
-      h1 ~ 1 + h0 + spray + blackspot,
-      prior = c(prior(normal(0, 100), class = Intercept),
-                prior(normal(0, 10), class = b),
-                prior(uniform(0, 10), class = sigma)),
-      iter = 2000, warmup = 1000, chains = 4, cores = 4,
-      control = list(adapt_delta = 0.99),
-      file = here("fits", "blackspot_mod"),
-      seed = 5)
-
-# simulate posterior coefficients
-draws <- gather_draws(blackspot_mod, b_h0,
-                      b_spray, b_blackspot)
-
-# visualize
-ggplot(draws, aes(x = .value, y = .variable)) +
-  stat_halfeye(.width = 0.89) +
-  labs(x = "Parameter value", y = "Parameter")
+  theme_void() +
+  scale_x_continuous(expand = expansion(mult = 0.3)) +
+  scale_y_continuous(expand = expansion(mult = 0.2))
 ```
 
 
@@ -342,17 +196,17 @@ class: left, middle, r-logo
 
 ## Booby trap 2: The Pipe (Post-treatment bias)
 
-The most believable causal theory is that the amount of spray $S$ reduces the amount of blackspot $B$ which results in better rose growth $G$, or:
+Sometimes a variable will have a causal influence on another variable through a mediator variable.  For example, Southern States ($S$) tend to have lower marriage ages ($A$), and lower marriage ages ($A$) tends to increase divorce rates ($D$).  So we might construct the following DAG:
 
 ```{r, echo = FALSE, fig.align = "center", out.height = "300"}
 dag_coords <-
-  tibble(name = c("S", "B", "G"),
+  tibble(name = c("S", "A", "D"),
          x = c(0, 0.5, 1),
          y = c(0, 0, 0))
 
 dagify(
-       G ~ B,
-       B ~ S,
+       D ~ A,
+       A ~ S,
        coords = dag_coords) %>%
   ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
   geom_dag_text(color = "black", size = 10) +
@@ -364,59 +218,9 @@ dagify(
   theme_void() 
 ```
 
-What are the conditional independencies in this pipe?
 
----
-class: left, middle, r-logo
 
-## Conditional independencies in a pipe
-
-```{r}
-dag2 <- dagitty(
-  "dag{S -> B; B -> G}"
-)
-impliedConditionalIndependencies(dag2)
-```
-
-In other words, if we condition on $B$ (blackspot), we conclude that there is no causal effect of $S$ (spray) on $G$ (growth), which is a false conclusion. This is because if we know the degree of blackspot, knowing the amount of spray tells us nothing further.  Conditioning on $B$ 'blocks the path'.  
-
-So if we want to causally relate two variables on either ends of a pipe, we should not condition on the middle variable.
-
----
-class: left, middle, r-logo
-
-## Sample bias
-
-Imagine we have been hiring some people into our company for a few years.  We hired them, $H$, on the basis of an assessment of their problem solving ability, $P$ and a separate assessment of their interpersonal skills, $I$.  
-
-```{r, echo = FALSE, fig.align = "center", out.height = "300"}
-dag_coords <-
-  tibble(name = c("P", "I", "H"),
-         x = c(0, 1, 0.5),
-         y = c(0, 0, 0))
-
-dagify(
-       H ~ P,
-       H ~ I,
-       coords = dag_coords) %>%
-  ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
-  geom_dag_text(color = "black", size = 10) +
-  geom_dag_point(data = . %>%  filter(name %in% c("U")),
-               shape = 1, stroke = 2, color = "black") +
-  geom_dag_edges(edge_color = "black", edge_width = 2,
-                 arrow_directed = grid::arrow(length = grid::unit(15, "pt"),
-                                              type = "closed")) +
-  theme_void() 
-```
-
-Let's construct some data to reflect this.  In this data, $P$ and $I$ will be constructed to be independent of each other, and $H$ will be determined based on the sum of $P$ and $I$.
-
----
-class: left, middle, r-logo
-
-## Simulate selection data
-
-```{r}
+```{r, echo = FALSE}
 set.seed(43)
 N <- 1000 # candidates
 p <- 0.1 # selection rate
@@ -427,28 +231,12 @@ q <- quantile(Total, 1 - p) # select hired based on sum of scores
 H <- ifelse(Total >= q, TRUE, FALSE)
 ```
 
-Now lets test for independence of $P$ and $I$ in our sample:
 
-```{r}
-cor.test(P, I)
-```
 
 ---
 class: left, middle, r-logo
 
-## What if we look at just the people we hired
-
-
-Now, an enthusiastic people analytics professional decides to ask if good problem-solvers have bad interpersonal skills, and tests the hypothesis on their company employees using recruiting data:
-
-```{r}
-cor.test(P[H == TRUE], I[H == TRUE])
-```
-
----
-class: left, middle, r-logo
-
-## Conditioning on the third variable can result in false inferences
+## Sometimes, conditioning on a third variable can result in false inferences
 
 ```{r, echo = FALSE, fig.align = "center", out.height = "500"}
 
@@ -476,35 +264,20 @@ class: left, middle, r-logo
 
 Our enthusiastic analyst might conclude that they have support for a causal relationship between $P$ and $I$, but this is only because they have conditioned on $H$ by only analyzing employees who have been hired.
 
-```{r}
+```{r, echo = FALSE, fig.align = "center", out.height = "400"}
 dag3 <- dagitty(
   "dag{P -> H <- I}"
 )
-impliedConditionalIndependencies(dag3)
-```
 
-If we are trying to support causal independence between $I$ and $P$, we **must not include $H$ in our model**.
-
-
----
-class: left, middle, r-logo
-
-## Booby trap 4: The Descendant Collider
-
-Let"s add a causal layer to our employee selection example.  Let $D$ be the decision to make a job offer and let $A$ be the acceptance of a job offer.  Our DAG might then look like this:
-
-
-```{r, echo = FALSE, fig.align = "center", out.height="300"}
-dag_coords <-
-  tibble(name = c("P", "I", "D", "A", "H"),
-         x = c(0, 1, 0.5, 0, 0.5),
-         y = c(1, 1, 1, 0, 0))
+# visualize as a DAG similarly to the previous examples
+dag_coords <- 
+  tibble(name = c("P", "I", "H"),
+         x = c(0, 1, 0.5),
+         y = c(1, 1, 0))
 
 dagify(
-       D ~ P,
-       D ~ I,
-       H ~ D,
-       H ~ A,
+       H ~ P,
+       H ~ I,
        coords = dag_coords) %>%
   ggplot(aes(x = x, y = y, xend = xend, yend = yend)) +
   geom_dag_text(color = "black", size = 10) +
@@ -513,17 +286,15 @@ dagify(
   geom_dag_edges(edge_color = "black", edge_width = 2,
                  arrow_directed = grid::arrow(length = grid::unit(15, "pt"),
                                               type = "closed")) +
-  theme_void() 
+  theme_void()
 
 ```
 
 
-Since $H$ is the descendant of collider $D$, any attempt to causally model $P$ against $H$ or $I$ against $H$ must not condition on $D$. 
-
 ---
 class: left, middle, r-logo
 
-## Getting complicated right?  But there is good news!
+## The backdoor criterion
 
 Given any DAG, and given any two variables which we are trying to causally relate, we can follow a simple process to determine what to include in our causal model.
 
@@ -577,27 +348,6 @@ What variables should we condition on if we want to support:
 1.  Waffle Houses as a cause of divorce rates
 2.  Southern-ness as a cause of divorce rates
 
-
----
-class: left, middle, r-logo
-
-## Let's answer the Waffle House question first
-
-Using the magic of `dagitty`, we can determine our conditioning variables.
-
-```{r}
-dag3 <- dagitty(
-  "dag{A -> D; 
-       A -> M -> D;
-       A <- S -> M;
-       S -> W -> D}"
-)
-dagitty::adjustmentSets(dag3, exposure = "W", outcome = "D")
-```
-
-So we have two options:  include $S$ or include $A$ and $M$.  Let's take the easiest option and include $S$.
-
-
 ---
 class: left, middle, r-logo
 
@@ -640,15 +390,7 @@ class: left, middle, r-logo
 
 ## Now the 'Southern-ness' question
 
-Again let's confirm our conditioning variables using `dagitty`:
-
-```{r}
-dagitty::adjustmentSets(dag3, exposure = "S", outcome = "D")
-```
-
-Makes sense as there are no backdoor paths originating at $S$, so this is a straight linear model with a single input variable.  The simulated posteriors of the coefficient of $S$ look like this:
-
-```{r, echo = FALSE, fig.align = "center", out.height = "300"}
+```{r, echo = FALSE, fig.align = "center", out.height = "500"}
 # use gaussian priors
 waf3_mod <- brm(D ~ 1 + S,
                data = waf_divorce, family = gaussian,
@@ -669,10 +411,7 @@ spread_draws(waf3_mod, b_S1) %>%
 ---
 class: left, middle, r-logo
 
-## Conclusions and references
+## Digital Swag
 
-1.  Causal inference is hard and a bit mind-bending 
-2.  If you work in predictive analytics you don't have to worry about it too much
-3.  If you work in explanatory analytics it's a very valuable skill and teaches a disciplined approach to modelling
-4.  I highly recommend [Statistical Rethinking](https://www.amazon.com/Statistical-Rethinking-Bayesian-Examples-Chapman/dp/1482253445) by Richard McElreath.  An outstanding book but not for the statistically fainthearted.
-5.  Another related book which is more business oriented is [Inference and Intervention](https://www.amazon.com/Inference-Intervention-Michael-D-Ryall/dp/0415657601)
+1.  Chapter 15 of "Handbook of Regression Modeling in People Analytics" (2026) by Keith McNulty
+2.  Richard McElreath's *Statistical Rethinking* YouTube lecture series.

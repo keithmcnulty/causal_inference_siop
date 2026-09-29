@@ -121,7 +121,7 @@ thead, tfoot, tr:nth-child(even) { background: none; }
 
 /* Add image and change bg color */
 .title-slide {
-  background-image: url(www/Rlogo.png);
+  background-image: url(www/generic-LEC-logo.png);
   background-position: 95% 5%;
   background-size: 200px;
   background-color: #fff;
@@ -271,9 +271,9 @@ strong {
 
 /* small R logo class */
 .r-logo {
-  background-image: url(www/Rlogo.png);
+  background-image: url(www/generic-LEC-logo.png);
   background-repeat: no-repeat;
-  background-size: 50px;
+  background-size: 100px;
   background-color: #fff;
   background-position: 99% 1%;
 }
